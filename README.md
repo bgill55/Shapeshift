@@ -18,8 +18,7 @@ Connecting to Shapeshift is quick and easy!
 Installation (For Self-Hosting)
 If you wish to build and host Shapeshift yourself, follow these steps:
  * **Clone the Repository:**bash
-   git clone <repository_url>
-   *(Replace `<repository_url>` with the actual URL of the repository)*
+   git clone https://github.com/bgill55/Shapeshift.git
 
  * Navigate to the Project Directory:
    cd shapeshift
