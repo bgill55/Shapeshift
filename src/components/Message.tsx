@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import React from 'react';
-import { Bot, MoveHorizontal, Pen, Reply, Star, Trash2 } from 'lucide-react';
+import { Bot, MoveHorizontal, Reply, Star } from 'lucide-react';
 import AudioPlayer from './AudioPlayer';
 import ImageViewer from './ImageViewer';
 import MessageActions from './MessageActions';

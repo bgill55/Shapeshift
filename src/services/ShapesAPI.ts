@@ -1,4 +1,14 @@
 import OpenAI from 'openai';
+// Import the specific message parameter types from the OpenAI SDK
+import {
+  ChatCompletionMessageParam,
+  ChatCompletionSystemMessageParam,
+  ChatCompletionUserMessageParam,
+  ChatCompletionAssistantMessageParam
+  // If your "shapes" use tool/function calling extensively and 'tool' role messages
+  // (or assistant messages with 'tool_calls') appear in chatHistory, you might also need:
+  // import { ChatCompletionToolMessageParam } from 'openai/resources/chat/completions';
+} from 'openai/resources/chat/completions';
 
 // Load custom shapes from localStorage
 const loadCustomShapes = (): Record<string, string> => {
@@ -65,7 +75,7 @@ let apiKey = '';
 try {
   apiKey = localStorage.getItem('shapes_api_key') || '';
 } catch (error) {
-  console.error('Failed to access localStorage. Private browsing mode may be enabled:', error);
+  console.error('Failed to access localStorage. Private Browse mode may be enabled:', error);
 }
 
 // Validate API key format
@@ -121,7 +131,7 @@ export const ShapesAPI = {
   
   // Add a custom shape
   addCustomShape: (id: string, displayName: string) => {
-    addCustomShape(id, displayName);
+    addCustomShape(id, displayName); // Calls the top-level function
   },
   // Set API key and create/update client
   setApiKey: (key: string) => {
@@ -134,7 +144,6 @@ export const ShapesAPI = {
         throw new Error('API key cannot be empty');
       }
 
-      // Check if the key is valid
       if (!isValidApiKey(trimmedKey)) {
         console.error('API key validation failed');
         throw new Error('Invalid API key. Please provide a non-empty API key.');
@@ -143,19 +152,16 @@ export const ShapesAPI = {
       console.log('API key validated successfully');
       apiKey = trimmedKey;
       
-      // Check if localStorage is available (can fail in private browsing)
       try {
         localStorage.setItem('shapes_api_key', trimmedKey);
         console.log('API key saved to localStorage');
       } catch (storageError) {
         console.warn('Could not save API key to localStorage. Using in-memory storage instead.', storageError);
-        // Continue execution - we'll use the in-memory apiKey variable
       }
       
       console.log('Creating API client...');
       shapesClient = createClient();
       
-      // Verify client was created successfully
       if (!shapesClient) {
         console.error('Failed to create API client');
         throw new Error('Failed to initialize API client');
@@ -169,24 +175,33 @@ export const ShapesAPI = {
     }
   },
 
-  // Check if API key is set
   hasApiKey: () => {
     return Boolean(apiKey);
   },
 
-  // Get API key
   getApiKey: () => {
     return apiKey;
   },
 
   // Send message to Shapes API
-  sendMessage: async (serverId: string, message: string, chatHistory: Array<{role: string, content: string}>) => {
+  sendMessage: async (
+    serverId: string,
+    message: string,
+    // MODIFIED: Use specific types for chatHistory items
+    chatHistory: Array<
+      | ChatCompletionSystemMessageParam
+      | ChatCompletionUserMessageParam
+      | ChatCompletionAssistantMessageParam
+      // If your "shapes" use tool/function calling that might appear in history,
+      // you would add ChatCompletionToolMessageParam here. For example:
+      // | ChatCompletionToolMessageParam
+    >
+  ) => {
     if (!shapesClient) {
       if (!apiKey) {
         throw new Error('API key not set');
       } else {
         console.log('Recreating client for API request...');
-        // Try to recreate client if it failed initially
         shapesClient = createClient();
         if (!shapesClient) {
           console.error('Failed to initialize API client for request');
@@ -197,25 +212,20 @@ export const ShapesAPI = {
     }
 
     try {
-      // Get model for server
       const model = MODEL_MAP[serverId] || MODEL_MAP.general;
       
-      // Add user message to history
-      const messages = [
+      // MODIFIED: Explicitly type the 'messages' array
+      const messages: ChatCompletionMessageParam[] = [
         ...chatHistory,
-        { role: 'user', content: message }
+        { role: 'user', content: message } // This conforms to ChatCompletionUserMessageParam
       ];
 
-      // Send to Shapes API
       const response = await shapesClient.chat.completions.create({
         model,
-        messages,
+        messages, // This array is now correctly typed
       });
 
-      // Return the assistant's message
       const messageContent = response.choices[0]?.message?.content || 'No response received';
-      
-      // Process the content to properly present audio links
       const processedContent = messageContent.replace(
         /(https:\/\/files\.shapes\.inc\/[a-zA-Z0-9_-]+\.mp3)/g,
         (match) => match
@@ -224,8 +234,6 @@ export const ShapesAPI = {
       return processedContent;
     } catch (error) {
       console.error('Error calling Shapes API:', error);
-      
-      // Provide more user-friendly error messages
       if (error instanceof Error) {
         if (error.message.includes('Authentication')) {
           throw new Error('Authentication failed. Please check your API key.');

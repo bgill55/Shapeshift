@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bot, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface AddShapeModalProps {
   isOpen: boolean;

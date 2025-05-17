@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Bell, ChevronRight, Hash, Settings, UserPlus, Users, Volume2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Hash, Settings, Volume2 } from 'lucide-react';
 
 type ChannelSidebarProps = {
   onChannelSelect: () => void;
