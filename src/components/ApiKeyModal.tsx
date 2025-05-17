@@ -106,7 +106,7 @@ export default function ApiKeyModal({ isOpen, onClose }: ApiKeyModalProps) {
               <p className="text-[#ed4245] text-sm mt-1">{error}</p>
             )}
             <p className="text-[#b5bac1] text-xs mt-1">
-              Accepted formats: UUID (e.g., 19623b2e-9e48-46bf-847c-5cd78cb3eecf) or API key (e.g., sk-shapes-xxxxx). This app runs in the browser, so your key is saved locally.
+              Any valid Shapes API key format is accepted. This app runs in the browser, so your key is saved locally.
             </p>
           </div>
 

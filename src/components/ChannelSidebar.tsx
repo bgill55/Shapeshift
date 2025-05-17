@@ -56,7 +56,7 @@ export default function ChannelSidebar({ onChannelSelect, onBackClick }: Channel
         >
           <ArrowLeft size={20} />
         </button>
-        <h2 className="font-semibold text-white truncate">{serverName}</h2>
+        <h2 className="font-semibold text-white truncate max-w-[180px]">{serverName}</h2>
         <button className="ml-auto text-[#b5bac1]">
           <ChevronRight size={20} />
         </button>

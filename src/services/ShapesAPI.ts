@@ -1,12 +1,63 @@
 import OpenAI from 'openai';
 
-// Model mapping for different servers
-const MODEL_MAP: Record<string, string> = {
+// Load custom shapes from localStorage
+const loadCustomShapes = (): Record<string, string> => {
+  try {
+    const storedShapes = localStorage.getItem('custom_shapes');
+    return storedShapes ? JSON.parse(storedShapes) : {};
+  } catch (error) {
+    console.error('Failed to load custom shapes from localStorage:', error);
+    return {};
+  }
+};
+
+// Load custom shape names from localStorage
+const loadCustomShapeNames = (): Record<string, string> => {
+  try {
+    const storedNames = localStorage.getItem('custom_shape_names');
+    return storedNames ? JSON.parse(storedNames) : {};
+  } catch (error) {
+    console.error('Failed to load custom shape names from localStorage:', error);
+    return {};
+  }
+};
+
+// Store of custom shape names (ID -> display name)
+const CUSTOM_SHAPE_NAMES: Record<string, string> = loadCustomShapeNames();
+
+// Default model mapping for different servers
+const DEFAULT_MODEL_MAP: Record<string, string> = {
   'general': 'shapesinc/general',
   'algebra': 'shapesinc/algebra',
   'logic': 'shapesinc/logic',
   'geometry': 'shapesinc/geometry',
-  'bella-donna': 'shapesinc/bella-donna', // Corrected model name to match API specs
+  'bella-donna': 'shapesinc/bella-donna',
+};
+
+// Combined model mapping with custom shapes
+const MODEL_MAP: Record<string, string> = {
+  ...DEFAULT_MODEL_MAP,
+  ...loadCustomShapes(),
+};
+
+// Function to add a new shape
+export const addCustomShape = (id: string, displayName: string): void => {
+  try {
+    // Save model mapping
+    const customShapes = loadCustomShapes();
+    customShapes[id] = `shapesinc/${id}`;
+    localStorage.setItem('custom_shapes', JSON.stringify(customShapes));
+    
+    // Save display name
+    CUSTOM_SHAPE_NAMES[id] = displayName;
+    localStorage.setItem('custom_shape_names', JSON.stringify(CUSTOM_SHAPE_NAMES));
+    
+    // Update the MODEL_MAP in memory
+    Object.assign(MODEL_MAP, customShapes);
+  } catch (error) {
+    console.error('Failed to save custom shape to localStorage:', error);
+    throw new Error('Failed to save custom shape');
+  }
 };
 
 // Initialize with empty API key - will be set by user
@@ -19,25 +70,13 @@ try {
 
 // Validate API key format
 const isValidApiKey = (key: string): boolean => {
-  // Check for UUID format (like '19623b2e-9e48-46bf-847c-5cd78cb3eecf')
-  // or standard API key format (like 'sk-shapes-xxxxx')
-  if (!key || typeof key !== 'string') {
+  if (!key || typeof key !== 'string' || key.trim() === '') {
     console.log('API key validation failed: key is empty or not a string');
     return false;
   }
-  
-  const trimmedKey = key.trim();
-  
-  // Check if it's a valid UUID format
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedKey);
-  
-  // Check if it's a valid Shapes API key format
-  const isShapesKey = /^sk-shapes-[a-zA-Z0-9]+$/.test(trimmedKey);
-  
-  console.log(`API key validation: UUID format=${isUuid}, Shapes format=${isShapesKey}`);
-  
-  // If either format is valid, return true
-  return isUuid || isShapesKey;
+
+  console.log('API key validation: Key is a non-empty string');
+  return true;
 };
 
 // Create OpenAI client with Shapes API base URL
@@ -70,6 +109,20 @@ const createClient = () => {
 let shapesClient = apiKey && isValidApiKey(apiKey) ? createClient() : null;
 
 export const ShapesAPI = {
+  // Get all available models (both default and custom)
+  getAvailableModels: () => {
+    return { ...MODEL_MAP };
+  },
+  
+  // Get custom shape display names
+  getCustomShapeNames: () => {
+    return { ...CUSTOM_SHAPE_NAMES };
+  },
+  
+  // Add a custom shape
+  addCustomShape: (id: string, displayName: string) => {
+    addCustomShape(id, displayName);
+  },
   // Set API key and create/update client
   setApiKey: (key: string) => {
     try {
@@ -84,7 +137,7 @@ export const ShapesAPI = {
       // Check if the key is valid
       if (!isValidApiKey(trimmedKey)) {
         console.error('API key validation failed');
-        throw new Error('Invalid API key format. Please check your key and try again. Accepted formats: UUID (8-4-4-4-12) or sk-shapes-xxx');
+        throw new Error('Invalid API key. Please provide a non-empty API key.');
       }
       
       console.log('API key validated successfully');
@@ -160,7 +213,15 @@ export const ShapesAPI = {
       });
 
       // Return the assistant's message
-      return response.choices[0]?.message?.content || 'No response received';
+      const messageContent = response.choices[0]?.message?.content || 'No response received';
+      
+      // Process the content to properly present audio links
+      const processedContent = messageContent.replace(
+        /(https:\/\/files\.shapes\.inc\/[a-zA-Z0-9_-]+\.mp3)/g,
+        (match) => match
+      );
+      
+      return processedContent;
     } catch (error) {
       console.error('Error calling Shapes API:', error);
       
