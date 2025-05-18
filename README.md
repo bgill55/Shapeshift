@@ -34,8 +34,17 @@ Prerequisites
 To run Shapeshift, you will need the following installed on your system:
  * Node.js: Ensure you have the latest version of Node.js installed. You can download it from https://nodejs.org/.
  * npm (Node Package Manager): npm typically comes bundled with Node.js.
-Contributing
-This project is currently being hosted and maintained by Shapes Inc., and I am working directly with them on its development. At this time, external contributions are not being accepted.
+
+  Build your application:
+```bash
+ npm run build
+```
+
+  . Deploy the contents of the `dist` folder to your web server
+    Contributing
+
+
+
 License
 This project is licensed under the MIT License - see the(LICENSE) file for details.
 Acknowledgments
