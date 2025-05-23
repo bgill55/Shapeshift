@@ -103,7 +103,7 @@ export default function MessageActions({ isBot, onRegenerate, onEdit, onDelete }
                 className="flex items-center w-full px-4 py-2 text-sm text-[#dcddde] hover:bg-[#383a40] transition-colors"
               >
                 <Pencil size={16} className="mr-2" />
-                Pencil Response
+                Edit Response
               </button>
             )}
             
