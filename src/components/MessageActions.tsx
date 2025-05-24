@@ -23,8 +23,7 @@ export default function MessageActions({ isBot, onRegenerate, onEdit, onDelete }
       
       {showMenu && (
         <div 
-          className="absolute right-0 top-full mt-1 w-48 bg-[#2b2d31] rounded-md shadow-lg z-10 overflow-hidden"
-          onMouseLeave={() => setShowMenu(false)}
+          className="absolute right-0 top-full mt-1 w-48 md:w-auto min-w-[150px] bg-[#2b2d31] rounded-md shadow-lg z-10 overflow-hidden"
         >
           <div className="py-1">
             {isBot && onRegenerate && (
