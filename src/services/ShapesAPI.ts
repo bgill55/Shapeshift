@@ -57,11 +57,11 @@ export const addCustomShape = (id: string, displayName: string): void => {
     const customShapes = loadCustomShapes();
     customShapes[id] = `shapesinc/${id}`;
     localStorage.setItem('custom_shapes', JSON.stringify(customShapes));
-    
+
     // Save display name
     CUSTOM_SHAPE_NAMES[id] = displayName;
     localStorage.setItem('custom_shape_names', JSON.stringify(CUSTOM_SHAPE_NAMES));
-    
+
     // Update the MODEL_MAP in memory
     Object.assign(MODEL_MAP, customShapes);
   } catch (error) {
@@ -95,13 +95,13 @@ const createClient = () => {
     console.error('Cannot create client: API key is empty');
     return null;
   }
-  
+
   try {
     if (!isValidApiKey(apiKey)) {
       console.error(`Invalid API key format: ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`);
       throw new Error('Invalid API key format');
     }
-    
+
     console.log('Creating OpenAI client with Shapes API base URL');
     return new OpenAI({
       apiKey: apiKey,
@@ -118,17 +118,30 @@ const createClient = () => {
 // Get current client or create new one
 let shapesClient = apiKey && isValidApiKey(apiKey) ? createClient() : null;
 
+// Define the ShapeProfile interface
+interface ShapeProfile {
+  id: string;
+  name: string;
+  username: string;
+  avatar_url?: string;
+  avatar?: string;
+  custom_html?: string;
+  // Add other properties from the profile JSON if you need them
+}
+
+const publicShapesBaseUrl = 'https://shapes.inc/api/public/shapes/';
+
 export const ShapesAPI = {
   // Get all available models (both default and custom)
   getAvailableModels: () => {
     return { ...MODEL_MAP };
   },
-  
+
   // Get custom shape display names
   getCustomShapeNames: () => {
     return { ...CUSTOM_SHAPE_NAMES };
   },
-  
+
   // Add a custom shape
   addCustomShape: (id: string, displayName: string) => {
     addCustomShape(id, displayName); // Calls the top-level function
@@ -138,7 +151,7 @@ export const ShapesAPI = {
     try {
       const trimmedKey = key.trim();
       console.log(`Setting API key: ${trimmedKey.substring(0, 4)}...${trimmedKey.substring(trimmedKey.length - 4)}`);
-      
+
       if (!trimmedKey) {
         console.error('API key is empty after trimming');
         throw new Error('API key cannot be empty');
@@ -148,25 +161,25 @@ export const ShapesAPI = {
         console.error('API key validation failed');
         throw new Error('Invalid API key. Please provide a non-empty API key.');
       }
-      
+
       console.log('API key validated successfully');
       apiKey = trimmedKey;
-      
+
       try {
         localStorage.setItem('shapes_api_key', trimmedKey);
         console.log('API key saved to localStorage');
       } catch (storageError) {
         console.warn('Could not save API key to localStorage. Using in-memory storage instead.', storageError);
       }
-      
+
       console.log('Creating API client...');
       shapesClient = createClient();
-      
+
       if (!shapesClient) {
         console.error('Failed to create API client');
-        throw new Error('Failed to initialize API client');
+        throw new Error('Unable to initialize API client. Please check your API key.');
       }
-      
+
       console.log('API client created successfully');
       return true;
     } catch (error) {
@@ -213,7 +226,7 @@ export const ShapesAPI = {
 
     try {
       const model = MODEL_MAP[serverId] || MODEL_MAP.general;
-      
+
       // MODIFIED: Explicitly type the 'messages' array
       const messages: ChatCompletionMessageParam[] = [
         ...chatHistory,
@@ -230,7 +243,7 @@ export const ShapesAPI = {
         /(https:\/\/files\.shapes\.inc\/[a-zA-Z0-9_-]+\.mp3)/g,
         (match) => match
       );
-      
+
       return processedContent;
     } catch (error) {
       console.error('Error calling Shapes API:', error);
@@ -246,5 +259,36 @@ export const ShapesAPI = {
         throw error;
       }
     }
-  }
+  },
+
+  // Function to fetch Shape profile information
+  fetchShapeProfileInfo: async (vanityUrl: string): Promise<ShapeProfile | null> => {
+    try {
+      const response = await fetch(`https://shapes.inc/api/public/shapes/${vanityUrl}`);
+      if (!response.ok) {
+        console.error(`Failed to fetch profile for ${vanityUrl}: ${response.status}`);
+        return null;
+      }
+      const data = await response.json() as ShapeProfile;
+      return data;
+    } catch (error) {
+      console.error(`Error fetching profile for ${vanityUrl}:`, error);
+      return null;
+    }
+  },
+
+  // Function to extract the avatar URL from the Shape profile data
+  getShapeAvatarUrlFromProfile: (profileData: ShapeProfile): string | null => {
+    if (profileData?.avatar_url) {
+      return profileData.avatar_url;
+    } else if (profileData?.avatar) {
+      return profileData.avatar;
+    } else if (profileData?.custom_html) {
+      const match = profileData.custom_html.match(/<img.*?class="profile-picture".*?src="(.*?)"/);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    return null;
+  },
 };

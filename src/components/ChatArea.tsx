@@ -22,10 +22,31 @@ export default function ChatArea() {
   const [error, setError] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null);
 
-  // Generate some placeholder messages
   useEffect(() => {
-    // Reuse getBotName function for consistency
+    const fetchBotAvatar = async () => {
+      if (serverId) {
+        const profileInfo = await ShapesAPI.fetchShapeProfileInfo(serverId);
+        if (profileInfo) {
+          const avatarUrl = ShapesAPI.getShapeAvatarUrlFromProfile(profileInfo);
+          console.log('ChatArea - fetchBotAvatar - Extracted avatarUrl:', avatarUrl); // Debug log 1
+          setBotAvatarUrl(avatarUrl);
+        } else {
+          console.log('ChatArea - fetchBotAvatar - profileInfo is null/undefined for serverId:', serverId); // Debug log
+          setBotAvatarUrl(null);
+        }
+      } else {
+        setBotAvatarUrl(null);
+      }
+    };
+
+    fetchBotAvatar();
+  }, [serverId]);
+
+  useEffect(() => {
+    console.log('ChatArea - useEffect [serverId, channelId, botAvatarUrl] - botAvatarUrl:', botAvatarUrl); // Debug log 2
+
     const getBotName = (id: string) => {
       const nameMap: Record<string, string> = {
         'general': 'Shapes Bot',
@@ -35,18 +56,13 @@ export default function ChatArea() {
         'bella-donna': 'Bella Donna'
       };
 
-      // Check built-in names first
+      const customNames = ShapesAPI.getCustomShapeNames();
       if (nameMap[id]) {
         return nameMap[id];
       }
-
-      // Then check for custom shape names
-      const customNames = ShapesAPI.getCustomShapeNames();
       if (customNames[id]) {
         return customNames[id];
       }
-
-      // As a fallback, generate a friendly name from ID
       return id
         .split('-')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -55,11 +71,11 @@ export default function ChatArea() {
 
     const botName = getBotName(serverId || 'general');
 
-    const newMessages = [
+    const newMessages: MessageType[] = [
       {
         id: 1,
         author: botName,
-        avatar: null,
+        avatar: botAvatarUrl, // Using the fetched avatar URL
         content: `Welcome to #${channelId}! This is the beginning of this channel.`,
         timestamp: new Date().toISOString(),
         isBot: true,
@@ -67,17 +83,15 @@ export default function ChatArea() {
       {
         id: 2,
         author: botName,
-        avatar: null,
+        avatar: botAvatarUrl, // Using the fetched avatar URL
         content: "I'm your AI assistant. How can I help you today?",
         timestamp: new Date().toISOString(),
         isBot: true,
       }
     ];
-
     setMessages(newMessages);
-  }, [serverId, channelId]);
+  }, [serverId, channelId, botAvatarUrl]); // Dependency on botAvatarUrl is key here
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -86,19 +100,13 @@ export default function ChatArea() {
     e.preventDefault();
     if (inputValue.trim() === '') return;
 
-    // Check if API key is set
     if (!ShapesAPI.hasApiKey()) {
       setError('Please set your Shapes API key to chat with the bots');
       return;
     }
 
-    // Clear any previous errors
     setError('');
-
-    // Get current server ID (fallback to 'general')
     const currentServerId = serverId || 'general';
-
-    // Create bot name based on server
     const getBotName = (id: string) => {
       const nameMap: Record<string, string> = {
         'general': 'Shapes Bot',
@@ -107,29 +115,20 @@ export default function ChatArea() {
         'geometry': 'Geometry Bot',
         'bella-donna': 'Bella Donna'
       };
-
-      // Check built-in names first
+      const customNames = ShapesAPI.getCustomShapeNames();
       if (nameMap[id]) {
         return nameMap[id];
       }
-
-      // Then check for custom shape names
-      const customNames = ShapesAPI.getCustomShapeNames();
       if (customNames[id]) {
         return customNames[id];
       }
-
-      // As a fallback, generate a friendly name from ID
       return id
         .split('-')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
     };
-
     const botName = getBotName(currentServerId);
-
-    // Add user message
-    const userMessage = {
+    const userMessage: MessageType = {
       id: Date.now(),
       author: 'You',
       avatar: null,
@@ -137,51 +136,42 @@ export default function ChatArea() {
       timestamp: new Date().toISOString(),
       isBot: false,
     };
-
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
-    setError(''); // Clear any previous errors
+    setError('');
 
     try {
-      // Convert previous messages to the format expected by the API
       const chatHistory = messages
-        .filter(msg => msg.id > 2) // Skip the welcome messages
+        .filter(msg => msg.id > 2)
         .map(msg => ({
           role: msg.isBot ? ('assistant' as 'assistant') : ('user' as 'user'),
           content: msg.content
         }));
 
-      // Send message to Shapes API
       const response = await ShapesAPI.sendMessage(
         currentServerId,
         inputValue,
         chatHistory
       );
 
-      // Add bot response
-      const botResponse = {
+      const botResponse: MessageType = {
         id: Date.now() + 1,
         author: botName,
-        avatar: null,
+        avatar: botAvatarUrl, // Using the fetched avatar URL
         content: response,
         timestamp: new Date().toISOString(),
         isBot: true,
       };
-
       setMessages(prev => [...prev, botResponse]);
     } catch (error) {
       console.error('Error sending message:', error);
-
-      // Provide more specific error messages
       if (error instanceof Error) {
         setError(error.message);
       } else {
         setError('Failed to get a response from the AI. Please check your API key and try again.');
       }
-
-      // Add a system message about the error
-      const errorMessage = {
+      const errorMessage: MessageType = {
         id: Date.now() + 1,
         author: 'System',
         avatar: null,
@@ -189,7 +179,6 @@ export default function ChatArea() {
         timestamp: new Date().toISOString(),
         isBot: true,
       };
-
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -211,47 +200,31 @@ export default function ChatArea() {
   };
 
   const handleRegenerateResponse = async (id: number) => {
-    // Find the message that triggered this response (the user message before this bot message)
     const botMessageIndex = messages.findIndex(msg => msg.id === id);
-    if (botMessageIndex <= 0) return; // Can't find the message or it's the first message
-
-    // Assuming the message before the bot is the user message that triggered it
+    if (botMessageIndex <= 0) return;
     let userMessageIndex = botMessageIndex - 1;
-    // Keep going back until we find a user message
     while (userMessageIndex >= 0 && messages[userMessageIndex].isBot) {
       userMessageIndex--;
     }
-
-    if (userMessageIndex < 0) return; // Couldn't find a user message
-
+    if (userMessageIndex < 0) return;
     const userMessage = messages[userMessageIndex];
-
-    // Remove the bot message we're regenerating
     setMessages(prev => prev.filter(msg => msg.id !== id));
-
-    // Regenerate using the same approach as handleSendMessage
     setIsLoading(true);
     setError('');
 
     try {
       const currentServerId = serverId || 'general';
-
-      // Get chat history excluding the message we're regenerating
       const chatHistory = messages
-        .filter(msg => msg.id > 2 && msg.id !== id) // Skip welcome messages and the message being regenerated
+        .filter(msg => msg.id > 2 && msg.id !== id)
         .map(msg => ({
           role: msg.isBot ? ('assistant' as 'assistant') : ('user' as 'user'),
           content: msg.content
         }));
-
-      // Send message to Shapes API
       const response = await ShapesAPI.sendMessage(
         currentServerId,
         userMessage.content,
         chatHistory
       );
-
-      // Create bot name based on server
       const getBotName = (id: string) => {
         const nameMap: Record<string, string> = {
           'general': 'Shapes Main',
@@ -260,41 +233,30 @@ export default function ChatArea() {
           'geometry': 'Geometry Shape',
           'comedian': 'Stand-Up Shape',
         };
-
-        // Check built-in names first
+        const customNames = ShapesAPI.getCustomShapeNames();
         if (nameMap[id]) {
           return nameMap[id];
         }
-
-        // Then check for custom shape names
-        const customNames = ShapesAPI.getCustomShapeNames();
         if (customNames[id]) {
           return customNames[id];
         }
-
-        // As a fallback, generate a friendly name from ID
         return id
           .split('-')
           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
           .join(' ');
       };
-
       const botName = getBotName(currentServerId);
-
-      // Add new bot response
-      const botResponse = {
+      const botResponse: MessageType = {
         id: Date.now(),
         author: botName,
-        avatar: null,
+        avatar: botAvatarUrl,
         content: response,
         timestamp: new Date().toISOString(),
         isBot: true,
       };
-
       setMessages(prev => [...prev, botResponse]);
     } catch (error) {
       console.error('Error regenerating response:', error);
-
       if (error instanceof Error) {
         setError(error.message);
       } else {
@@ -310,38 +272,29 @@ export default function ChatArea() {
     const getBotName = (id: string) => {
       const nameMap: Record<string, string> = {
         'general': 'Shapes Main',
-          'algebra': 'Algebra Shape',
-          'logic': 'Logic Shape',
-          'geometry': 'Geometry Shape',
-          'comedian': 'Stand-Up Shape',
+        'algebra': 'Algebra Shape',
+        'logic': 'Logic Shape',
+        'geometry': 'Geometry Shape',
+        'comedian': 'Stand-Up Shape',
       };
-
-      // Check built-in names first
+      const customNames = ShapesAPI.getCustomShapeNames();
       if (nameMap[id]) {
         return nameMap[id];
       }
-
-      // Then check for custom shape names
-      const customNames = ShapesAPI.getCustomShapeNames();
       if (customNames[id]) {
         return customNames[id];
       }
-
-      // As a fallback, generate a friendly name from ID
       return id
         .split('-')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
     };
-
     const botName = getBotName(currentServerId);
-
-    // Reset to welcome messages
     setMessages([
       {
         id: Date.now(),
         author: botName,
-        avatar: null,
+        avatar: botAvatarUrl,
         content: `Welcome to #${channelId}! This is the beginning of this channel.`,
         timestamp: new Date().toISOString(),
         isBot: true,
@@ -349,7 +302,7 @@ export default function ChatArea() {
       {
         id: Date.now() + 1,
         author: botName,
-        avatar: null,
+        avatar: botAvatarUrl,
         content: "I'm your Shape assistant. How can I help you today?",
         timestamp: new Date().toISOString(),
         isBot: true,
@@ -373,7 +326,6 @@ export default function ChatArea() {
       <div className="h-12 border-b border-[#1f2023] flex items-center px-4 shadow-sm">
         <div className="text-[#b5bac1] mr-2">#</div>
         <h2 className="font-semibold text-white truncate">{channelId}</h2>
-
         <div className="ml-auto flex items-center">
           <button
             onClick={() => setShowClearConfirm(true)}
@@ -385,18 +337,12 @@ export default function ChatArea() {
           </button>
         </div>
       </div>
-
       <div className="flex-1 overflow-y-auto p-4 pb-0">
         <div className="w-full max-w-[1200px] mx-auto">
           {messages.map((message) => (
             <Message
               key={message.id}
-              id={message.id}
-              author={message.author}
-              content={message.content}
-              timestamp={message.timestamp}
-              isBot={message.isBot}
-              isEditing={message.isEditing}
+              {...message}
               onDelete={handleDeleteMessage}
               onRegenerate={message.isBot ? handleRegenerateResponse : undefined}
               onEdit={message.isBot ? (id, content) => {
@@ -408,31 +354,26 @@ export default function ChatArea() {
               } : undefined}
             />
           ))}
-
           {isLoading && (
             <div className="py-4 px-4 text-[#b5bac1] italic">
               Bot is typing...
             </div>
           )}
-
           {error && (
             <div className="py-3 px-4 bg-[#ed4245]/10 text-[#ed4245] rounded-md mb-4 flex items-center">
               <CircleAlert size={16} className="mr-2 flex-shrink-0" />
               {error}
             </div>
           )}
-
           {!ShapesAPI.hasApiKey() && (
             <div className="py-3 px-4 bg-[#5865f2]/10 text-[#b5bac1] rounded-md mb-4">
               <p className="font-medium text-white mb-1">Set up your Shapes API Key</p>
               <p className="text-sm">Click the key icon in the server sidebar to set your API key and start chatting with the bots.</p>
             </div>
           )}
-
           <div ref={messagesEndRef}></div>
         </div>
       </div>
-
       <div className="p-4 pt-0 w-full">
         <div className="w-full max-w-[1200px] mx-auto mt-4">
           <form onSubmit={handleSendMessage} className="relative w-full">
@@ -444,7 +385,6 @@ export default function ChatArea() {
               >
                 <CirclePlus size={20} />
               </button>
-
               <input
                 type="text"
                 value={inputValue}
@@ -453,7 +393,6 @@ export default function ChatArea() {
                 className="bg-transparent flex-1 min-w-0 outline-none text-white placeholder:text-[#6d6f78] w-full"
                 disabled={isLoading}
               />
-
               <div className="flex gap-2 text-[#b5bac1] flex-shrink-0">
                 <button type="button" aria-label="Mention" className="hover:text-white">
                   <AtSign size={20} />
@@ -480,12 +419,9 @@ export default function ChatArea() {
           </form>
         </div>
       </div>
-
-      {/* Clear Conversation Confirmation Modal */}
       {showClearConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg
--[#2b2d31] rounded-lg w-full max-w-md p-6 shadow-xl">
+          <div className="bg-[#2b2d31] rounded-lg w-full max-w-md p-6 shadow-xl">
             <div className="flex items-center mb-4">
               <Ban size={24} className="text-[#ed4245] mr-3 flex-shrink-0" />
               <h2 className="text-xl font-semibold">Clear Conversation</h2>

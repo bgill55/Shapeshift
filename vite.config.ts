@@ -6,6 +6,7 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   server: {
     allowedHosts: true,
+    usePolling: true,
   },
   build: {
     chunkSizeWarningLimit: 5000,

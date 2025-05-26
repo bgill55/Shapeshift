@@ -15,28 +15,30 @@ type MessageProps = {
   onRegenerate?: (id: number) => void;
   onEdit?: (id: number, content: string) => void;
   isEditing?: boolean;
+  avatar?: string | null; // Add the avatar prop to the interface
 };
 
-export default function Message({ 
-  id, 
-  author, 
-  content, 
-  timestamp, 
+export default function Message({
+  id,
+  author,
+  content,
+  timestamp,
   isBot = false,
   onDelete,
   onRegenerate,
   onEdit,
-  isEditing = false 
+  isEditing = false,
+  avatar // Destructure the avatar prop here
 }: MessageProps) {
   const [showOptions, setShowOptions] = useState(false);
   const [editContent, setEditContent] = useState(content);
-  
+
   // Format timestamp
   const formattedTime = new Date(timestamp).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
   });
-  
+
   // Generate initials for avatar
   const initials = author
     .split(' ')
@@ -44,7 +46,7 @@ export default function Message({
     .join('')
     .toUpperCase()
     .substring(0, 2);
-  
+
   // Generate a consistent color based on the author's name
   const getAvatarColor = (name: string) => {
     const colors = [
@@ -54,43 +56,39 @@ export default function Message({
       'rgb(250, 166, 26)', // Discord yellow
       'rgb(110, 86, 235)', // Discord purple
     ];
-    
+
     // Simple hash function to get a consistent color
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
       hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
-    
+
     const index = Math.abs(hash) % colors.length;
     return colors[index];
   };
-  
+
   const avatarColor = isBot ? 'rgb(88, 101, 242)' : getAvatarColor(author);
-  
+
   // Function to detect and render shapes audio and image URLs
   const renderMessageContent = (content: string) => {
-    // Regex to match shapes.inc audio URLs
     const audioUrlRegex = /https?:\/\/files\.shapes\.inc\/[a-zA-Z0-9_-]+\.mp3/g;
-    // Regex to match shapes.inc image URLs (png, jpg, jpeg, gif, webp)
     const imageUrlRegex = /https?:\/\/files\.shapes\.inc\/[a-zA-Z0-9_-]+\.(png|jpg|jpeg|gif|webp)/g;
-    
+
     const audioMatches = content.match(audioUrlRegex);
     const imageMatches = content.match(imageUrlRegex);
-    
-    // If we have both audio and image URLs
+
     if ((audioMatches && audioMatches.length > 0) || (imageMatches && imageMatches.length > 0)) {
-      // Create a combined regex to split the content
       const combinedRegex = new RegExp(audioUrlRegex.source + '|' + imageUrlRegex.source, 'g');
       const allMatches = content.match(combinedRegex) || [];
       const parts = content.split(combinedRegex);
-      
+
       return (
         <>
           {parts.map((part, index) => (
             <React.Fragment key={index}>
               {part}
               {index < allMatches.length && (
-                isAudioUrl(allMatches[index]) 
+                isAudioUrl(allMatches[index])
                   ? <AudioPlayer url={allMatches[index]} />
                   : <ImageViewer url={allMatches[index]} />
               )}
@@ -99,32 +97,39 @@ export default function Message({
         </>
       );
     }
-    
-    // No media URLs, just return the content
+
     return content;
   };
-  
+
   // Helper function to check if a URL is an audio URL
   const isAudioUrl = (url: string) => {
     return url.match(/\.mp3$/i) !== null;
   };
-  
+
   return (
-    <div 
+    <div
       className="py-2 px-1 hover:bg-[#2e3035] rounded group max-w-full"
       onMouseEnter={() => setShowOptions(true)}
       onMouseLeave={() => setShowOptions(false)}
     >
       <div className="flex w-full">
         <div className="mr-4 mt-0.5">
-          <div 
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white"
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden" // Added overflow-hidden
             style={{ backgroundColor: avatarColor }}
           >
-            {isBot ? <Bot size={20} /> : initials}
+            {isBot ? (
+              avatar ? (
+                <img src={avatar} alt={`${author} Avatar`} className="w-full h-full object-cover rounded-full" />
+              ) : (
+                <Bot size={20} />
+              )
+            ) : (
+              initials
+            )}
           </div>
         </div>
-        
+
         <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex items-center flex-wrap">
             <div className="font-medium text-white flex items-center overflow-hidden text-ellipsis">
@@ -134,7 +139,7 @@ export default function Message({
               )}
             </div>
             <div className="text-xs text-[#949ba4] ml-2">{formattedTime}</div>
-            
+
             {showOptions && (
               <div className="ml-4 flex gap-1 text-[#949ba4] flex-shrink-0">
                 <button className="hover:text-white p-1 rounded hover:bg-[#383a40]">
@@ -146,7 +151,7 @@ export default function Message({
                 <button className="hover:text-white p-1 rounded hover:bg-[#383a40]">
                   <MoveHorizontal size={16} />
                 </button>
-                <MessageActions 
+                <MessageActions
                   isBot={isBot}
                   onDelete={() => onDelete(id)}
                   onRegenerate={isBot && onRegenerate ? () => onRegenerate(id) : undefined}
@@ -155,7 +160,7 @@ export default function Message({
               </div>
             )}
           </div>
-          
+
           {isEditing ? (
             <div className="mt-1">
               <textarea
@@ -165,13 +170,13 @@ export default function Message({
                 autoFocus
               />
               <div className="flex justify-end gap-2 mt-2">
-                <button 
+                <button
                   className="px-3 py-1 text-sm bg-transparent text-[#b5bac1] hover:text-white rounded transition-colors"
                   onClick={() => setEditContent(content)}
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   className="px-3 py-1 text-sm bg-[#5865f2] text-white rounded hover:bg-[#4752c4] transition-colors"
                   onClick={() => onEdit && onEdit(id, editContent)}
                 >
