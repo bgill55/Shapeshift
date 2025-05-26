@@ -41,28 +41,21 @@ export default function ChatArea() {
     }
     // --- Simulation End ---
 
-    const fetchAndSetAvatar = async () => {
+    const determineAvatar = () => { // Renamed from fetchAndSetAvatar
       if (simulatedAppShapeData?.customAvatarUrl) {
         setBotAvatarUrl(simulatedAppShapeData.customAvatarUrl);
         console.log('Using custom avatar:', simulatedAppShapeData.customAvatarUrl);
-      } else if (simulatedAppShapeData?.vanityUrl) {
-        console.log('No custom avatar, attempting to fetch from shapes.inc for:', simulatedAppShapeData.vanityUrl);
-        const profileInfo = await ShapesAPI.fetchShapeProfileInfo(simulatedAppShapeData.vanityUrl);
-        if (profileInfo) {
-          const shapesIncAvatar = ShapesAPI.getShapeAvatarUrlFromProfile(profileInfo);
-          setBotAvatarUrl(shapesIncAvatar);
-          console.log('Using shapes.inc avatar:', shapesIncAvatar);
-        } else {
-          setBotAvatarUrl(null);
-          console.log('No avatar found from shapes.inc for:', simulatedAppShapeData.vanityUrl);
-        }
       } else {
-        setBotAvatarUrl(null); // No data to fetch any avatar
-        console.log('No shape data (serverId or simulatedAppShapeData) to determine avatar.');
+        setBotAvatarUrl(null);
+        if (serverId) { // Only log if we expected to find a shape
+            console.log('No custom avatar found for shape:', serverId, '. Using null.');
+        } else {
+            console.log('No serverId, avatar set to null.');
+        }
       }
     };
 
-    fetchAndSetAvatar();
+    determineAvatar();
   }, [serverId]); // serverId determines simulatedAppShapeData
 
   useEffect(() => {
