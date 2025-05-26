@@ -26,7 +26,9 @@ export default function ChatArea() {
 
   useEffect(() => {
     const fetchBotAvatar = async () => {
+    console.log('ChatArea - fetchBotAvatar - serverId:', serverId); // Added log
       if (serverId) {
+      console.log('ChatArea - fetchBotAvatar - Attempting to fetch profile info for serverId:', serverId); // Added log
         const profileInfo = await ShapesAPI.fetchShapeProfileInfo(serverId);
         if (profileInfo) {
           const avatarUrl = ShapesAPI.getShapeAvatarUrlFromProfile(profileInfo);
@@ -37,6 +39,7 @@ export default function ChatArea() {
           setBotAvatarUrl(null);
         }
       } else {
+      console.log('ChatArea - fetchBotAvatar - serverId is falsy, skipping profile info fetch.'); // Added log
         setBotAvatarUrl(null);
       }
     };

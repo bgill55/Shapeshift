@@ -263,6 +263,7 @@ export const ShapesAPI = {
 
   // Function to fetch Shape profile information
   fetchShapeProfileInfo: async (vanityUrl: string): Promise<ShapeProfile | null> => {
+    console.log('ShapesAPI - fetchShapeProfileInfo - Attempting to fetch profile for vanityUrl:', vanityUrl);
     try {
       const response = await fetch(`https://shapes.inc/api/public/shapes/${vanityUrl}`);
       if (!response.ok) {
