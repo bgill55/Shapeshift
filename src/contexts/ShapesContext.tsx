@@ -17,67 +17,61 @@ interface ShapesContextType {
 
 const ShapesContext = createContext<ShapesContextType | undefined>(undefined);
 
-// Helper to generate placeholder icons for context, actual icons will be in ServerSidebar
-const getDefaultIcon = (id: string, name: string): JSX.Element => {
+// Helper to generate placeholder icons - Defined at the top level
+const getDefaultIcon = (id: string, _name?: string): JSX.Element => { // name param often unused here if id dictates icon
   if (id === 'general') return <House size={24} />;
-  // For other specific default shapes, you can add more cases here if needed
-  // e.g. if (id === 'algebra') return <SpecificAlgebraIcon />;
-  // Default placeholder for custom or other bots
-  return <Bot size={24} />; // Fallback to Bot icon
+  // For specific default shapes, ensure their IDs are checked here.
+  // e.g., if (id === 'algebra') return <SomeSpecificIconForAlgebra />;
+  return <Bot size={24} />; // Fallback for other defaults and custom shapes
 };
 
+// Define DEFAULT_SERVERS_CONFIG at the top level
+const DEFAULT_SERVERS_CONFIG: Server[] = [
+  { id: 'general', name: 'General', icon: getDefaultIcon('general', 'General'), customAvatarUrl: null, isCustom: false },
+  { id: 'algebra', name: 'Algebra Bot', icon: getDefaultIcon('algebra', 'Algebra Bot'), customAvatarUrl: null, isCustom: false },
+  { id: 'logic', name: 'Logic Bot', icon: getDefaultIcon('logic', 'Logic Bot'), customAvatarUrl: null, isCustom: false },
+  { id: 'geometry', name: 'Geometry Bot', icon: getDefaultIcon('geometry', 'Geometry Bot'), customAvatarUrl: null, isCustom: false },
+  { id: 'bella-donna', name: 'Bella Donna', icon: getDefaultIcon('bella-donna', 'Bella Donna'), customAvatarUrl: null, isCustom: false },
+];
 
 export const ShapesProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-  const [servers, setServers] = useState<Server[]>([
-    { id: 'general', name: 'General', icon: getDefaultIcon('general', 'General'), customAvatarUrl: null, isCustom: false },
-    { id: 'algebra', name: 'Algebra Bot', icon: getDefaultIcon('algebra', 'Algebra Bot'), customAvatarUrl: null, isCustom: false },
-    { id: 'logic', name: 'Logic Bot', icon: getDefaultIcon('logic', 'Logic Bot'), customAvatarUrl: null, isCustom: false },
-    { id: 'geometry', name: 'Geometry Bot', icon: getDefaultIcon('geometry', 'Geometry Bot'), customAvatarUrl: null, isCustom: false },
-    { id: 'bella-donna', name: 'Bella Donna', icon: getDefaultIcon('bella-donna', 'Bella Donna'), customAvatarUrl: null, isCustom: false },
-  ]);
+  const [servers, setServers] = useState<Server[]>(DEFAULT_SERVERS_CONFIG.map(s => ({ ...s }))); // Initialize with a copy
 
   useEffect(() => {
     const loadCustomShapes = () => {
       try {
         const customShapeDetails = ShapesAPI.getCustomShapeDetails();
-        const initialDefaultServers = [ // Define default servers explicitly for comparison
-            { id: 'general', name: 'General', icon: getDefaultIcon('general', 'General'), customAvatarUrl: null, isCustom: false },
-            { id: 'algebra', name: 'Algebra Bot', icon: getDefaultIcon('algebra', 'Algebra Bot'), customAvatarUrl: null, isCustom: false },
-            { id: 'logic', name: 'Logic Bot', icon: getDefaultIcon('logic', 'Logic Bot'), customAvatarUrl: null, isCustom: false },
-            { id: 'geometry', name: 'Geometry Bot', icon: getDefaultIcon('geometry', 'Geometry Bot'), customAvatarUrl: null, isCustom: false },
-            { id: 'bella-donna', name: 'Bella Donna', icon: getDefaultIcon('bella-donna', 'Bella Donna'), customAvatarUrl: null, isCustom: false },
-        ];
-        const defaultIds = initialDefaultServers.map(s => s.id);
+        // Start with a deep copy of DEFAULT_SERVERS_CONFIG
+        let newServersList = DEFAULT_SERVERS_CONFIG.map(s => ({ ...s }));
 
-        const loadedCustomShapes = Object.keys(customShapeDetails)
-          .map(id => {
-            const details = customShapeDetails[id];
-            return {
+        for (const id in customShapeDetails) {
+          const details = customShapeDetails[id];
+          const existingServerIndex = newServersList.findIndex(s => s.id === id);
+
+          if (existingServerIndex !== -1) {
+            // Update existing default server with custom details
+            newServersList[existingServerIndex].name = details.name;
+            newServersList[existingServerIndex].customAvatarUrl = details.customAvatarUrl;
+            newServersList[existingServerIndex].isCustom = true; // Mark as customized
+            // Icon can remain the default, or be updated if needed:
+            // newServersList[existingServerIndex].icon = getDefaultIcon(id, details.name); 
+          } else {
+            // Add new custom shape not in defaults
+            newServersList.push({
               id,
               name: details.name,
               icon: getDefaultIcon(id, details.name), // Use helper for icon
-              isCustom: true, // Mark as custom
+              isCustom: true,
               customAvatarUrl: details.customAvatarUrl,
-            };
-          });
-        
-        // Combine default and custom shapes, ensuring no duplicates for default shapes
-        // Custom shapes from storage will override defaults if IDs match
-        const uniqueServers = [...initialDefaultServers];
-        loadedCustomShapes.forEach(customShape => {
-            const existingIndex = uniqueServers.findIndex(s => s.id === customShape.id);
-            if (existingIndex !== -1) {
-                // If a shape with the same ID exists (e.g. a default shape now customized)
-                // update it. Make sure isCustom is true.
-                uniqueServers[existingIndex] = { ...customShape, isCustom: true }; 
-            } else {
-                uniqueServers.push(customShape);
-            }
-        });
-        setServers(uniqueServers);
+            });
+          }
+        }
+        setServers(newServersList);
 
       } catch (error) {
         console.error('Failed to load custom shapes:', error);
+        // Optionally, set servers to a copy of defaults if loading fails:
+        // setServers(DEFAULT_SERVERS_CONFIG.map(s => ({ ...s })));
       }
     };
     loadCustomShapes();
