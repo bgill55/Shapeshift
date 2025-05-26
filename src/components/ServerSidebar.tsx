@@ -24,7 +24,7 @@ export default function ServerSidebar({ onServerSelect }: ServerSidebarProps) {
   const hasApiKey = ShapesAPI.hasApiKey(); // Assuming ShapesAPI.hasApiKey() is still valid
 
   // Helper function to get Lucide icons for shapes
-  const getIconForShape = (shapeId: string, isCustom?: boolean) => {
+  const getIconForShape = (shapeId: string) => {
     if (shapeId === 'general') return <House size={24} />;
     if (shapeId === 'algebra') return <Bot size={24} />; // Example, customize as needed
     if (shapeId === 'logic') return <Bot size={24} />;
@@ -52,7 +52,7 @@ export default function ServerSidebar({ onServerSelect }: ServerSidebarProps) {
           }`}
           aria-label={server.name}
         >
-          {getIconForShape(server.id, server.isCustom)} {/* Use helper for icon */}
+          {getIconForShape(server.id)} {/* Use helper for icon */}
         </button>
       ))}
       
