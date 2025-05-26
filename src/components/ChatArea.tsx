@@ -25,27 +25,45 @@ export default function ChatArea() {
   const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchBotAvatar = async () => {
-    console.log('ChatArea - fetchBotAvatar - serverId:', serverId); // Added log
-      if (serverId) {
-      console.log('ChatArea - fetchBotAvatar - Attempting to fetch profile info for serverId:', serverId); // Added log
-        const profileInfo = await ShapesAPI.fetchShapeProfileInfo(serverId);
+    // --- Simulation Start (for this subtask only) ---
+    // In a real app, this would come from app state/context/backend
+    let simulatedAppShapeData: { customAvatarUrl?: string | null; vanityUrl: string } | null = null;
+    if (serverId) {
+      simulatedAppShapeData = { vanityUrl: serverId };
+      // To test custom avatar logic:
+      if (serverId === 'bella-donna') { 
+        simulatedAppShapeData.customAvatarUrl = 'https://example.com/custom/bella-donna-avatar.png';
+      }
+      // Example for a shape that might exist on shapes.inc but not have a custom one:
+      // if (serverId === 'algebra') { 
+      //   simulatedAppShapeData.vanityUrl = 'algebra'; // Will fetch from shapes.inc
+      // }
+    }
+    // --- Simulation End ---
+
+    const fetchAndSetAvatar = async () => {
+      if (simulatedAppShapeData?.customAvatarUrl) {
+        setBotAvatarUrl(simulatedAppShapeData.customAvatarUrl);
+        console.log('Using custom avatar:', simulatedAppShapeData.customAvatarUrl);
+      } else if (simulatedAppShapeData?.vanityUrl) {
+        console.log('No custom avatar, attempting to fetch from shapes.inc for:', simulatedAppShapeData.vanityUrl);
+        const profileInfo = await ShapesAPI.fetchShapeProfileInfo(simulatedAppShapeData.vanityUrl);
         if (profileInfo) {
-          const avatarUrl = ShapesAPI.getShapeAvatarUrlFromProfile(profileInfo);
-          console.log('ChatArea - fetchBotAvatar - Extracted avatarUrl:', avatarUrl); // Debug log 1
-          setBotAvatarUrl(avatarUrl);
+          const shapesIncAvatar = ShapesAPI.getShapeAvatarUrlFromProfile(profileInfo);
+          setBotAvatarUrl(shapesIncAvatar);
+          console.log('Using shapes.inc avatar:', shapesIncAvatar);
         } else {
-          console.log('ChatArea - fetchBotAvatar - profileInfo is null/undefined for serverId:', serverId); // Debug log
           setBotAvatarUrl(null);
+          console.log('No avatar found from shapes.inc for:', simulatedAppShapeData.vanityUrl);
         }
       } else {
-      console.log('ChatArea - fetchBotAvatar - serverId is falsy, skipping profile info fetch.'); // Added log
-        setBotAvatarUrl(null);
+        setBotAvatarUrl(null); // No data to fetch any avatar
+        console.log('No shape data (serverId or simulatedAppShapeData) to determine avatar.');
       }
     };
 
-    fetchBotAvatar();
-  }, [serverId]);
+    fetchAndSetAvatar();
+  }, [serverId]); // serverId determines simulatedAppShapeData
 
   useEffect(() => {
     console.log('ChatArea - useEffect [serverId, channelId, botAvatarUrl] - botAvatarUrl:', botAvatarUrl); // Debug log 2
