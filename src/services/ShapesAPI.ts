@@ -98,14 +98,6 @@ export const addCustomShape = (id: string, displayName: string, avatarUrl?: stri
 
 // Initialize with empty API key - will be set by user
 let apiKey = '';
-  } catch (error) {
-    console.error('Failed to save custom shape to localStorage:', error);
-    throw new Error('Failed to save custom shape');
-  }
-};
-
-// Initialize with empty API key - will be set by user
-let apiKey = '';
 try {
   apiKey = localStorage.getItem('shapes_api_key') || '';
 } catch (error) {
