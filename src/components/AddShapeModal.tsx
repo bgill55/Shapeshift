@@ -59,7 +59,7 @@ export default function AddShapeModal({ isOpen, onClose, onAddShape }: AddShapeM
     formData.append('avatar', file); // 'avatar' is the field name the backend expects
 
     try {
-      const response = await fetch('/api/avatar-upload', { // Conceptual endpoint
+      const response = await fetch('http://localhost:3001/api/avatar-upload', { // Absolute URL for backend
         method: 'POST',
         body: formData,
         // No Content-Type header needed for FormData with fetch, browser sets it.
