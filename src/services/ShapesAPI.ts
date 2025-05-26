@@ -129,8 +129,6 @@ interface ShapeProfile {
   // Add other properties from the profile JSON if you need them
 }
 
-const publicShapesBaseUrl = 'https://shapes.inc/api/public/shapes/';
-
 export const ShapesAPI = {
   // Get all available models (both default and custom)
   getAvailableModels: () => {
