@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { AtSign, Ban, CircleAlert, CirclePlus, Gift, Image, Send, Smile, Trash2 } from 'lucide-react';
 import Message from './Message';
-import { ShapesAPI } from '../services/ShapesAPI';
+import { ShapesAPI } from '../services/ShapesAPI'; // May still be needed for API key check or sending messages
+import { useShapes, Server as AppShapeType } from '../contexts/ShapesContext'; // Import context and type
 
 interface MessageType {
   id: number;
@@ -23,73 +24,45 @@ export default function ChatArea() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null);
+  const { servers } = useShapes(); // Get shapes from context
 
   useEffect(() => {
-    // --- Simulation Start (for this subtask only) ---
-    // In a real app, this would come from app state/context/backend
-    let simulatedAppShapeData: { customAvatarUrl?: string | null; vanityUrl: string } | null = null;
-    if (serverId) {
-      simulatedAppShapeData = { vanityUrl: serverId };
-      // To test custom avatar logic:
-      if (serverId === 'bella-donna') { 
-        simulatedAppShapeData.customAvatarUrl = 'https://example.com/custom/bella-donna-avatar.png';
-      }
-      // Example for a shape that might exist on shapes.inc but not have a custom one:
-      // if (serverId === 'algebra') { 
-      //   simulatedAppShapeData.vanityUrl = 'algebra'; // Will fetch from shapes.inc
-      // }
-    }
-    // --- Simulation End ---
+    const activeShape = servers.find(s => s.id === serverId);
 
-    const determineAvatar = () => { // Renamed from fetchAndSetAvatar
-      if (simulatedAppShapeData?.customAvatarUrl) {
-        setBotAvatarUrl(simulatedAppShapeData.customAvatarUrl);
-        console.log('Using custom avatar:', simulatedAppShapeData.customAvatarUrl);
+    if (activeShape?.customAvatarUrl) {
+      setBotAvatarUrl(activeShape.customAvatarUrl);
+      console.log('ChatArea: Using custom avatar from context for', serverId, ':', activeShape.customAvatarUrl);
+    } else {
+      setBotAvatarUrl(null);
+      if (serverId) {
+        console.log('ChatArea: No custom avatar found in context for shape:', serverId, '. Using null.');
       } else {
-        setBotAvatarUrl(null);
-        if (serverId) { // Only log if we expected to find a shape
-            console.log('No custom avatar found for shape:', serverId, '. Using null.');
-        } else {
-            console.log('No serverId, avatar set to null.');
-        }
+        console.log('ChatArea: No serverId, avatar set to null.');
       }
-    };
-
-    determineAvatar();
-  }, [serverId]); // serverId determines simulatedAppShapeData
+    }
+  }, [serverId, servers]);
 
   useEffect(() => {
-    console.log('ChatArea - useEffect [serverId, channelId, botAvatarUrl] - botAvatarUrl:', botAvatarUrl); // Debug log 2
-
-    const getBotName = (id: string) => {
-      const nameMap: Record<string, string> = {
-        'general': 'Shapes Bot',
-        'algebra': 'Algebra Bot',
-        'logic': 'Logic Bot',
-        'geometry': 'Geometry Bot',
-        'bella-donna': 'Bella Donna'
-      };
-
-      const customNames = ShapesAPI.getCustomShapeNames();
-      if (nameMap[id]) {
-        return nameMap[id];
-      }
-      if (customNames[id]) {
-        return customNames[id];
-      }
-      return id
-        .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-    };
-
-    const botName = getBotName(serverId || 'general');
+    const activeShape = servers.find(s => s.id === serverId);
+    const currentServerId = serverId || 'general';
+    
+    let botName = 'Bot'; // Default bot name
+    if (activeShape) {
+      botName = activeShape.name;
+    } else if (currentServerId === 'general') {
+      botName = 'Shapes Bot';
+    } else {
+      // Fallback for serverId not in context and not 'general'
+      botName = currentServerId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    }
+    
+    // console.log('ChatArea - useEffect [serverId, channelId, botAvatarUrl, servers] - botAvatarUrl:', botAvatarUrl); 
 
     const newMessages: MessageType[] = [
       {
         id: 1,
         author: botName,
-        avatar: botAvatarUrl, // Using the fetched avatar URL
+        avatar: botAvatarUrl, 
         content: `Welcome to #${channelId}! This is the beginning of this channel.`,
         timestamp: new Date().toISOString(),
         isBot: true,
@@ -97,14 +70,14 @@ export default function ChatArea() {
       {
         id: 2,
         author: botName,
-        avatar: botAvatarUrl, // Using the fetched avatar URL
+        avatar: botAvatarUrl, 
         content: "I'm your AI assistant. How can I help you today?",
         timestamp: new Date().toISOString(),
         isBot: true,
       }
     ];
     setMessages(newMessages);
-  }, [serverId, channelId, botAvatarUrl]); // Dependency on botAvatarUrl is key here
+  }, [serverId, channelId, botAvatarUrl, servers]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -121,27 +94,17 @@ export default function ChatArea() {
 
     setError('');
     const currentServerId = serverId || 'general';
-    const getBotName = (id: string) => {
-      const nameMap: Record<string, string> = {
-        'general': 'Shapes Bot',
-        'algebra': 'Algebra Bot',
-        'logic': 'Logic Bot',
-        'geometry': 'Geometry Bot',
-        'bella-donna': 'Bella Donna'
-      };
-      const customNames = ShapesAPI.getCustomShapeNames();
-      if (nameMap[id]) {
-        return nameMap[id];
-      }
-      if (customNames[id]) {
-        return customNames[id];
-      }
-      return id
-        .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-    };
-    const botName = getBotName(currentServerId);
+    const activeShape = servers.find(s => s.id === currentServerId);
+
+    let botName = 'Bot';
+    if (activeShape) {
+      botName = activeShape.name;
+    } else if (currentServerId === 'general') {
+      botName = 'Shapes Bot';
+    } else {
+      botName = currentServerId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    }
+
     const userMessage: MessageType = {
       id: Date.now(),
       author: 'You',
@@ -239,30 +202,19 @@ export default function ChatArea() {
         userMessage.content,
         chatHistory
       );
-      const getBotName = (id: string) => {
-        const nameMap: Record<string, string> = {
-          'general': 'Shapes Main',
-          'algebra': 'Algebra Shape',
-          'logic': 'Logic Shape',
-          'geometry': 'Geometry Shape',
-          'comedian': 'Stand-Up Shape',
-        };
-        const customNames = ShapesAPI.getCustomShapeNames();
-        if (nameMap[id]) {
-          return nameMap[id];
-        }
-        if (customNames[id]) {
-          return customNames[id];
-        }
-        return id
-          .split('-')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
-      };
-      const botName = getBotName(currentServerId);
+      const activeShapeForRegen = servers.find(s => s.id === currentServerId);
+      let botNameForRegen = 'Bot';
+      if (activeShapeForRegen) {
+        botNameForRegen = activeShapeForRegen.name;
+      } else if (currentServerId === 'general') {
+        botNameForRegen = 'Shapes Bot'; // Or 'Shapes Main' if you prefer for regen
+      } else {
+        botNameForRegen = currentServerId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+      }
+
       const botResponse: MessageType = {
         id: Date.now(),
-        author: botName,
+        author: botNameForRegen,
         avatar: botAvatarUrl,
         content: response,
         timestamp: new Date().toISOString(),
@@ -283,27 +235,17 @@ export default function ChatArea() {
 
   const handleClearConversation = () => {
     const currentServerId = serverId || 'general';
-    const getBotName = (id: string) => {
-      const nameMap: Record<string, string> = {
-        'general': 'Shapes Main',
-        'algebra': 'Algebra Shape',
-        'logic': 'Logic Shape',
-        'geometry': 'Geometry Shape',
-        'comedian': 'Stand-Up Shape',
-      };
-      const customNames = ShapesAPI.getCustomShapeNames();
-      if (nameMap[id]) {
-        return nameMap[id];
-      }
-      if (customNames[id]) {
-        return customNames[id];
-      }
-      return id
-        .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-    };
-    const botName = getBotName(currentServerId);
+    const activeShape = servers.find(s => s.id === currentServerId);
+
+    let botName = 'Bot';
+    if (activeShape) {
+      botName = activeShape.name;
+    } else if (currentServerId === 'general') {
+      botName = 'Shapes Bot'; // Or 'Shapes Main'
+    } else {
+      botName = currentServerId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    }
+
     setMessages([
       {
         id: Date.now(),
