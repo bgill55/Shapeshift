@@ -10,6 +10,12 @@ import {
   // import { ChatCompletionToolMessageParam } from 'openai/resources/chat/completions';
 } from 'openai/resources/chat/completions';
 
+// Define the new CustomShapeDetails interface
+interface CustomShapeDetails {
+  name: string;
+  customAvatarUrl?: string | null;
+}
+
 // Load custom shapes from localStorage
 const loadCustomShapes = (): Record<string, string> => {
   try {
@@ -21,19 +27,39 @@ const loadCustomShapes = (): Record<string, string> => {
   }
 };
 
-// Load custom shape names from localStorage
-const loadCustomShapeNames = (): Record<string, string> => {
+// Load custom shape details from localStorage (renamed and modified)
+const loadCustomShapeDetails = (): Record<string, CustomShapeDetails> => {
   try {
-    const storedNames = localStorage.getItem('custom_shape_names');
-    return storedNames ? JSON.parse(storedNames) : {};
+    const storedDetails = localStorage.getItem('custom_shape_details');
+    const parsedDetails = storedDetails ? JSON.parse(storedDetails) : {};
+    
+    // Migration logic
+    const migratedDetails: Record<string, CustomShapeDetails> = {};
+    for (const id in parsedDetails) {
+      const item = parsedDetails[id];
+      if (typeof item === 'string') {
+        // Old format: value is just the name string
+        migratedDetails[id] = { name: item, customAvatarUrl: null };
+      } else if (item && typeof item.name === 'string') {
+        // New format or already migrated: value is an object
+        migratedDetails[id] = {
+          name: item.name,
+          customAvatarUrl: item.customAvatarUrl !== undefined ? item.customAvatarUrl : null,
+        };
+      } else {
+        // Handle unexpected structure if necessary, or skip
+        console.warn(`Skipping invalid custom shape detail for id: ${id}`, item);
+      }
+    }
+    return migratedDetails;
   } catch (error) {
-    console.error('Failed to load custom shape names from localStorage:', error);
+    console.error('Failed to load custom shape details from localStorage:', error);
     return {};
   }
 };
 
-// Store of custom shape names (ID -> display name)
-const CUSTOM_SHAPE_NAMES: Record<string, string> = loadCustomShapeNames();
+// Store of custom shape details (ID -> { name, customAvatarUrl })
+const CUSTOM_SHAPE_DETAILS: Record<string, CustomShapeDetails> = loadCustomShapeDetails();
 
 // Default model mapping for different servers
 const DEFAULT_MODEL_MAP: Record<string, string> = {
@@ -47,23 +73,31 @@ const DEFAULT_MODEL_MAP: Record<string, string> = {
 // Combined model mapping with custom shapes
 const MODEL_MAP: Record<string, string> = {
   ...DEFAULT_MODEL_MAP,
-  ...loadCustomShapes(),
+  ...loadCustomShapes(), // This still loads the model mapping, which is separate from display details
 };
 
-// Function to add a new shape
-export const addCustomShape = (id: string, displayName: string): void => {
+// Function to add a new shape (modified signature and logic)
+export const addCustomShape = (id: string, displayName: string, avatarUrl?: string | null): void => {
   try {
-    // Save model mapping
-    const customShapes = loadCustomShapes();
-    customShapes[id] = `shapesinc/${id}`;
+    // Save model mapping (if this part is still needed, otherwise remove)
+    // For now, assuming model mapping is still relevant via loadCustomShapes()
+    const customShapes = loadCustomShapes(); 
+    customShapes[id] = `shapesinc/${id}`; // This seems to map ID to a model identifier
     localStorage.setItem('custom_shapes', JSON.stringify(customShapes));
+    Object.assign(MODEL_MAP, customShapes); // Update in-memory MODEL_MAP
 
-    // Save display name
-    CUSTOM_SHAPE_NAMES[id] = displayName;
-    localStorage.setItem('custom_shape_names', JSON.stringify(CUSTOM_SHAPE_NAMES));
+    // Save shape details (name and avatar)
+    CUSTOM_SHAPE_DETAILS[id] = { name: displayName, customAvatarUrl: avatarUrl };
+    localStorage.setItem('custom_shape_details', JSON.stringify(CUSTOM_SHAPE_DETAILS));
 
-    // Update the MODEL_MAP in memory
-    Object.assign(MODEL_MAP, customShapes);
+  } catch (error) {
+    console.error('Failed to save custom shape to localStorage:', error);
+    throw new Error('Failed to save custom shape');
+  }
+};
+
+// Initialize with empty API key - will be set by user
+let apiKey = '';
   } catch (error) {
     console.error('Failed to save custom shape to localStorage:', error);
     throw new Error('Failed to save custom shape');
@@ -135,14 +169,17 @@ export const ShapesAPI = {
     return { ...MODEL_MAP };
   },
 
-  // Get custom shape display names
-  getCustomShapeNames: () => {
-    return { ...CUSTOM_SHAPE_NAMES };
+  // Get custom shape details (renamed)
+  getCustomShapeDetails: () => {
+    return { ...CUSTOM_SHAPE_DETAILS };
   },
 
-  // Add a custom shape
-  addCustomShape: (id: string, displayName: string) => {
-    addCustomShape(id, displayName); // Calls the top-level function
+  // Add a custom shape (modified signature)
+  addCustomShape: (id: string, displayName: string, avatarUrl?: string | null) => {
+    // The top-level addCustomShape is already modified, so this just calls it.
+    // Ensure the one being called is the exported one if there's any ambiguity,
+    // but in this structure, it should directly call the modified top-level function.
+    addCustomShape(id, displayName, avatarUrl); 
   },
   // Set API key and create/update client
   setApiKey: (key: string) => {

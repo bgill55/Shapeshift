@@ -1,107 +1,39 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { Bot, House, Key, Plus, Settings } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react'; // Removed useEffect
 import ApiKeyModal from './ApiKeyModal';
 import AddShapeModal from './AddShapeModal';
-import { ShapesAPI } from '../services/ShapesAPI';
+// ShapesAPI import might still be needed for hasApiKey, or that could be moved to context too.
+// For now, assume it's still needed for hasApiKey.
+import { ShapesAPI } from '../services/ShapesAPI'; 
+import { useShapes } from '../contexts/ShapesContext'; // Import Server type and hook
+// Server type from context will be used, local definition removed.
 
 type ServerSidebarProps = {
   onServerSelect: () => void;
 };
 
-type Server = {
-  id: string;
-  name: string;
-  icon: JSX.Element;
-  isCustom?: boolean;
-};
+// Local 'Server' type definition is removed as it's imported/used from ShapesContext.
 
 export default function ServerSidebar({ onServerSelect }: ServerSidebarProps) {
   const { serverId } = useParams();
   const navigate = useNavigate();
+  const { servers, addShape } = useShapes(); // Use context
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [showAddShapeModal, setShowAddShapeModal] = useState(false);
-  const hasApiKey = ShapesAPI.hasApiKey();
-  const [servers, setServers] = useState<Server[]>([
-    { id: 'general', name: 'General', icon: <House size={24} /> },
-    { id: 'algebra', name: 'Algebra Bot', icon: <Bot size={24} /> },
-    { id: 'logic', name: 'Logic Bot', icon: <Bot size={24} /> },
-    { id: 'geometry', name: 'Geometry Bot', icon: <Bot size={24} /> },
-    { id: 'bella-donna', name: 'Bella Donna', icon: <Bot size={24} /> },
-  ]);
-  
-  // Load custom shapes on component mount
-  useEffect(() => {
-    loadCustomShapes();
-  }, []);
-  
-  // Load custom shapes from localStorage
-  const loadCustomShapes = () => {
-    try {
-      const models = ShapesAPI.getAvailableModels();
-      const customNames = ShapesAPI.getCustomShapeNames();
-      const defaultIds = ['general', 'algebra', 'logic', 'geometry', 'bella-donna'];
-      
-      // Find custom models (those not in the default list)
-      const customShapes = Object.keys(models)
-        .filter(id => !defaultIds.includes(id))
-        .map(id => {
-          // Use stored custom name if available, otherwise generate from ID
-          const name = customNames[id] || id
-            .split('-')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-          
-          return {
-            id,
-            name,
-            icon: <Bot size={24} />,
-            isCustom: true
-          };
-        });
-      
-      // Add custom shapes to the servers list
-      if (customShapes.length > 0) {
-        setServers(prev => {
-          // Filter out any existing custom shapes to avoid duplicates
-          const defaultServers = prev.filter(server => !server.isCustom);
-          return [...defaultServers, ...customShapes];
-        });
-      }
-    } catch (error) {
-      console.error('Failed to load custom shapes:', error);
-    }
-  };
-  
-  // Handle adding a new shape
-  const handleAddShape = (id: string, name: string) => {
-    try {
-      // Add to ShapesAPI
-      ShapesAPI.addCustomShape(id, name);
-      
-      // Add to UI
-      setServers(prev => {
-        // Check if already exists
-        if (prev.some(server => server.id === id)) {
-          return prev;
-        }
-        
-        // Add new server
-        return [
-          ...prev,
-          {
-            id,
-            name,
-            icon: <Bot size={24} />,
-            isCustom: true
-          }
-        ];
-      });
-    } catch (error) {
-      console.error('Failed to add shape:', error);
-    }
-  };
+  const hasApiKey = ShapesAPI.hasApiKey(); // Assuming ShapesAPI.hasApiKey() is still valid
 
+  // Helper function to get Lucide icons for shapes
+  const getIconForShape = (shapeId: string, isCustom?: boolean) => {
+    if (shapeId === 'general') return <House size={24} />;
+    if (shapeId === 'algebra') return <Bot size={24} />; // Example, customize as needed
+    if (shapeId === 'logic') return <Bot size={24} />;
+    if (shapeId === 'geometry') return <Bot size={24} />;
+    if (shapeId === 'bella-donna') return <Bot size={24} />;
+    // Default for other custom shapes or if no specific icon is defined
+    return <Bot size={24} />;
+  };
+  
   const handleServerClick = (id: string) => {
     navigate(`/server/${id}/welcome`);
     onServerSelect();
@@ -120,7 +52,7 @@ export default function ServerSidebar({ onServerSelect }: ServerSidebarProps) {
           }`}
           aria-label={server.name}
         >
-          {server.icon}
+          {getIconForShape(server.id, server.isCustom)} {/* Use helper for icon */}
         </button>
       ))}
       
@@ -161,7 +93,7 @@ export default function ServerSidebar({ onServerSelect }: ServerSidebarProps) {
       <AddShapeModal
         isOpen={showAddShapeModal}
         onClose={() => setShowAddShapeModal(false)}
-        onAddShape={handleAddShape}
+        onAddShape={addShape} // Pass `addShape` from context
       />
     </div>
   );
