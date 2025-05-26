@@ -5,6 +5,24 @@ import Message from './Message';
 import { ShapesAPI } from '../services/ShapesAPI'; // May still be needed for API key check or sending messages
 import { useShapes, Server as AppShapeType } from '../contexts/ShapesContext'; // Import context and type
 
+// Helper function to determine the bot's display name
+const getDisplayBotName = (activeShape: AppShapeType | undefined, serverIdParam?: string): string => {
+  if (activeShape?.name) {
+    return activeShape.name;
+  }
+  // Fallback logic if activeShape or activeShape.name is not available
+  if (serverIdParam === 'general') {
+    return 'Shapes Bot';
+  }
+  if (serverIdParam) {
+    return serverIdParam
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+  return 'Bot'; // Default fallback
+};
+
 interface MessageType {
   id: number;
   author: string;
@@ -44,17 +62,7 @@ export default function ChatArea() {
 
   useEffect(() => {
     const activeShape = servers.find(s => s.id === serverId);
-    const currentServerId = serverId || 'general';
-    
-    let botName = 'Bot'; // Default bot name
-    if (activeShape) {
-      botName = activeShape.name;
-    } else if (currentServerId === 'general') {
-      botName = 'Shapes Bot';
-    } else {
-      // Fallback for serverId not in context and not 'general'
-      botName = currentServerId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    }
+    const botName = getDisplayBotName(activeShape, serverId);
     
     // console.log('ChatArea - useEffect [serverId, channelId, botAvatarUrl, servers] - botAvatarUrl:', botAvatarUrl); 
 
@@ -95,15 +103,7 @@ export default function ChatArea() {
     setError('');
     const currentServerId = serverId || 'general';
     const activeShape = servers.find(s => s.id === currentServerId);
-
-    let botName = 'Bot';
-    if (activeShape) {
-      botName = activeShape.name;
-    } else if (currentServerId === 'general') {
-      botName = 'Shapes Bot';
-    } else {
-      botName = currentServerId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    }
+    const botName = getDisplayBotName(activeShape, currentServerId);
 
     const userMessage: MessageType = {
       id: Date.now(),
@@ -203,14 +203,7 @@ export default function ChatArea() {
         chatHistory
       );
       const activeShapeForRegen = servers.find(s => s.id === currentServerId);
-      let botNameForRegen = 'Bot';
-      if (activeShapeForRegen) {
-        botNameForRegen = activeShapeForRegen.name;
-      } else if (currentServerId === 'general') {
-        botNameForRegen = 'Shapes Bot'; // Or 'Shapes Main' if you prefer for regen
-      } else {
-        botNameForRegen = currentServerId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-      }
+      const botNameForRegen = getDisplayBotName(activeShapeForRegen, currentServerId);
 
       const botResponse: MessageType = {
         id: Date.now(),
@@ -236,15 +229,7 @@ export default function ChatArea() {
   const handleClearConversation = () => {
     const currentServerId = serverId || 'general';
     const activeShape = servers.find(s => s.id === currentServerId);
-
-    let botName = 'Bot';
-    if (activeShape) {
-      botName = activeShape.name;
-    } else if (currentServerId === 'general') {
-      botName = 'Shapes Bot'; // Or 'Shapes Main'
-    } else {
-      botName = currentServerId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    }
+    const botName = getDisplayBotName(activeShape, currentServerId);
 
     setMessages([
       {
