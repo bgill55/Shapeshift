@@ -23,6 +23,21 @@ const getDisplayBotName = (activeShape: AppShapeType | undefined, serverIdParam?
   return 'Bot'; // Default fallback
 };
 
+// New interfaces for multimodal content
+interface TextContentPart {
+  type: "text";
+  text: string;
+}
+
+interface ImageUrlContentPart {
+  type: "image_url";
+  image_url: {
+    url: string;
+  };
+}
+
+type MultimodalContentPart = TextContentPart | ImageUrlContentPart;
+
 interface MessageType {
   id: number;
   author: string;
@@ -37,6 +52,7 @@ export default function ChatArea() {
   const { serverId, channelId } = useParams();
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [imageUrlInput, setImageUrlInput] = useState(''); // Added state for image URL
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -64,7 +80,6 @@ export default function ChatArea() {
     const activeShape = servers.find(s => s.id === serverId);
     const botName = getDisplayBotName(activeShape, serverId);
     
-    // console.log('ChatArea - useEffect [serverId, channelId, botAvatarUrl, servers] - botAvatarUrl:', botAvatarUrl); 
 
     const newMessages: MessageType[] = [
       {
@@ -105,49 +120,105 @@ export default function ChatArea() {
     const activeShape = servers.find(s => s.id === currentServerId);
     const botName = getDisplayBotName(activeShape, currentServerId);
 
+    // Construct messageContentForApi
+    const trimmedImageUrl = imageUrlInput.trim();
+    let messageContentForApi: MultimodalContentPart[] = [{ type: "text", text: inputValue.trim() }];
+
+    if (trimmedImageUrl) {
+      messageContentForApi.push({
+        type: "image_url",
+        image_url: {
+          url: trimmedImageUrl,
+        },
+      });
+    }
+    
+    // User message for local display (still just text)
     const userMessage: MessageType = {
       id: Date.now(),
       author: 'You',
       avatar: null,
-      content: inputValue,
+      content: inputValue, // Display only text part locally
       timestamp: new Date().toISOString(),
       isBot: false,
     };
     setMessages(prev => [...prev, userMessage]);
+    
     setInputValue('');
+    setImageUrlInput(''); // Clear the image URL input
+    
     setIsLoading(true);
     setError('');
 
+    console.log('Prepared messageContentForApi for backend:', messageContentForApi);
+    // const chatHistory = messages // chatHistory would be built here for the actual API call
+    //   .filter(msg => msg.id > 2) 
+    //   .map(msg => ({
+    //     role: msg.isBot ? ('assistant' as 'assistant') : ('user' as 'user'),
+    //     content: msg.content // This would need adjustment if prior messages could be multimodal
+    //   }));
+    // console.log('Chat history for backend:', chatHistory); // Keep for debugging if needed
+
     try {
       const chatHistory = messages
-        .filter(msg => msg.id > 2)
-        .map(msg => ({
-          role: msg.isBot ? ('assistant' as 'assistant') : ('user' as 'user'),
-          content: msg.content
-        }));
+        .filter(msg => msg.id > 2) // Exclude initial welcome messages
+        .map(msg => {
+          // For now, assume chat history content is simple text for the API.
+          // If chat history could also contain image_url parts, this needs adjustment.
+          // For this step, we send only the text content from history.
+          let contentForHistory = msg.content;
+          if (Array.isArray(msg.content)) { // Should not happen based on current MessageType
+             console.warn("Unexpected array content in chat history message:", msg);
+             contentForHistory = msg.content.find(part => part.type === 'text')?.text || "";
+          }
+          return {
+            role: msg.isBot ? ('assistant' as 'assistant') : ('user' as 'user'),
+            content: contentForHistory 
+          };
+        });
 
-      const response = await ShapesAPI.sendMessage(
-        currentServerId,
-        inputValue,
-        chatHistory
-      );
+      const response = await fetch('/api/multimodal-chat', { // Vercel function endpoint
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          serverId: currentServerId,
+          userInputContent: messageContentForApi, // The array with text/image_url parts
+          chatHistory: chatHistory,
+        }),
+      });
+
+      if (!response.ok) {
+        let errorMsg = `Error from proxy: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (e) { /* Ignore if error response isn't JSON */ }
+        throw new Error(errorMsg);
+      }
+
+      const responseData = await response.json();
+      const botReplyText = responseData.reply || "Error: No reply from proxy.";
+
 
       const botResponse: MessageType = {
         id: Date.now() + 1,
         author: botName,
-        avatar: botAvatarUrl, // Using the fetched avatar URL
-        content: response,
+        avatar: botAvatarUrl,
+        content: botReplyText, // Use the reply from the proxy
         timestamp: new Date().toISOString(),
         isBot: true,
       };
       setMessages(prev => [...prev, botResponse]);
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error sending message via proxy:', error);
       if (error instanceof Error) {
         setError(error.message);
       } else {
-        setError('Failed to get a response from the AI. Please check your API key and try again.');
+        setError('An unknown error occurred while sending your message. Please try again.');
       }
+      // Optionally add a system error message to the chat
       const errorMessage: MessageType = {
         id: Date.now() + 1,
         author: 'System',
@@ -318,43 +389,56 @@ export default function ChatArea() {
       <div className="p-4 pt-0 w-full">
         <div className="w-full max-w-[1200px] mx-auto mt-4">
           <form onSubmit={handleSendMessage} className="relative w-full">
-            <div className="flex items-center bg-[#383a40] rounded-lg px-4 py-2 w-full overflow-hidden">
-              <button
-                type="button"
-                className="text-[#b5bac1] hover:text-white mr-2"
-                aria-label="Add file"
-              >
-                <CirclePlus size={20} />
-              </button>
+            <div className="flex flex-col gap-2"> {/* Outer container for stacking inputs */}
+              {/* New Image URL Input */}
               <input
                 type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={`Message #${channelId}`}
-                className="bg-transparent flex-1 min-w-0 outline-none text-white placeholder:text-[#6d6f78] w-full"
+                value={imageUrlInput}
+                onChange={(e) => setImageUrlInput(e.target.value)}
+                placeholder="Image URL (optional)"
+                className="bg-[#2b2d31] flex-1 min-w-0 outline-none text-white placeholder:text-[#6d6f78] w-full px-3 py-1.5 rounded-md border border-[#1f2023] focus:ring-1 focus:ring-[#5865f2]"
                 disabled={isLoading}
               />
-              <div className="flex gap-2 text-[#b5bac1] flex-shrink-0">
-                <button type="button" aria-label="Mention" className="hover:text-white">
-                  <AtSign size={20} />
-                </button>
-                <button type="button" aria-label="Emoji" className="hover:text-white">
-                  <Smile size={20} />
-                </button>
-                <button type="button" aria-label="Gift" className="hover:text-white">
-                  <Gift size={20} />
-                </button>
-                <button type="button" aria-label="Image" className="hover:text-white">
-                  <Image size={20} />
-                </button>
+
+              {/* Existing Message Input and Buttons Div */}
+              <div className="flex items-center bg-[#383a40] rounded-lg px-4 py-2 w-full overflow-hidden">
                 <button
-                  type="submit"
-                  disabled={!inputValue.trim() || isLoading}
-                  className={`hover:text-white ${(!inputValue.trim() || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  aria-label="Send message"
+                  type="button"
+                  className="text-[#b5bac1] hover:text-white mr-2"
+                  aria-label="Add file"
                 >
-                  <Send size={20} />
+                  <CirclePlus size={20} />
                 </button>
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder={`Message #${channelId}`}
+                  className="bg-transparent flex-1 min-w-0 outline-none text-white placeholder:text-[#6d6f78] w-full"
+                  disabled={isLoading}
+                />
+                <div className="flex gap-2 text-[#b5bac1] flex-shrink-0">
+                  <button type="button" aria-label="Mention" className="hover:text-white">
+                    <AtSign size={20} />
+                  </button>
+                  <button type="button" aria-label="Emoji" className="hover:text-white">
+                    <Smile size={20} />
+                  </button>
+                  <button type="button" aria-label="Gift" className="hover:text-white">
+                    <Gift size={20} />
+                  </button>
+                  <button type="button" aria-label="Image" className="hover:text-white">
+                    <Image size={20} />
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!inputValue.trim() || isLoading}
+                    className={`hover:text-white ${(!inputValue.trim() || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    aria-label="Send message"
+                  >
+                    <Send size={20} />
+                  </button>
+                </div>
               </div>
             </div>
           </form>
