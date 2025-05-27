@@ -57,7 +57,6 @@ export default function AddShapeModal({ isOpen, onClose, onAddShape }: AddShapeM
     console.log('Attempting to upload file:', file.name);
     const formData = new FormData();
     formData.append('avatar', file); // 'avatar' is the field name the backend expects
-
     try {
       const response = await fetch('http://localhost:3001/api/avatar-upload', { // Absolute URL for backend
         method: 'POST',
@@ -159,16 +158,11 @@ export default function AddShapeModal({ isOpen, onClose, onAddShape }: AddShapeM
       onAddShape(shapeId, shapeName, uploadedAvatarUrl);
       
       setSuccess(true);
-      // setError(''); // Already cleared at the beginning of handleSubmit or before avatar upload
       setUrl('');
-      // resetAvatarStates(); // Reset avatar states on successful submission
       
       // Auto-close after success
       setTimeout(() => {
         handleCloseModal(); // Use the new handler to also reset avatar states
-        // onClose(); // Original onClose
-        // setSuccess(false); // Already in handleCloseModal
-        // resetAvatarStates(); // Already in handleCloseModal
       }, 1500);
     } catch (err) {
       console.error('Error adding shape:', err);

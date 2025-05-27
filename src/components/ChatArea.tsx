@@ -23,6 +23,21 @@ const getDisplayBotName = (activeShape: AppShapeType | undefined, serverIdParam?
   return 'Bot'; // Default fallback
 };
 
+// New interfaces for multimodal content
+interface TextContentPart {
+  type: "text";
+  text: string;
+}
+
+interface ImageUrlContentPart {
+  type: "image_url";
+  image_url: {
+    url: string;
+  };
+}
+
+type MultimodalContentPart = TextContentPart | ImageUrlContentPart;
+
 interface MessageType {
   id: number;
   author: string;
@@ -65,7 +80,6 @@ export default function ChatArea() {
     const activeShape = servers.find(s => s.id === serverId);
     const botName = getDisplayBotName(activeShape, serverId);
     
-    // console.log('ChatArea - useEffect [serverId, channelId, botAvatarUrl, servers] - botAvatarUrl:', botAvatarUrl); 
 
     const newMessages: MessageType[] = [
       {
@@ -108,7 +122,7 @@ export default function ChatArea() {
 
     // Construct messageContentForApi
     const trimmedImageUrl = imageUrlInput.trim();
-    let messageContentForApi: any[] = [{ type: "text", text: inputValue.trim() }];
+    let messageContentForApi: MultimodalContentPart[] = [{ type: "text", text: inputValue.trim() }];
 
     if (trimmedImageUrl) {
       messageContentForApi.push({
